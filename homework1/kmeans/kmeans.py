@@ -3,6 +3,44 @@
 
 import numpy as np
 import random
+import math
+import copy
+
+#Calculates distances between a point and a cluster
+def point_to_cluster_distance(point, cluster):
+    #print(point, cluster)
+    temp_point = copy.deepcopy(point)
+    temp_cluster = copy.deepcopy(cluster)
+    temp_point.pop()
+    temp_cluster.pop()
+    distance = np.linalg.norm(np.asarray(temp_point) - np.asarray(temp_cluster))
+    """for i in range(0, len(temp_point)):
+            in temp_point:
+        for cluster_value in temp_cluster:
+            distance += (point_value - cluster_value)**2
+    distance = math.sqrt(distance)"""
+    return distance
+
+#Tolerance checker - checks to see if cluster assignments have changed
+def checktolerance(begin, after):
+    #Requires begin and after be same size
+    for i in range(0, len(begin)):
+        #print("Checking convergence")
+        #print(begin[i][-1])
+        #print(after[i][-1])
+        if(begin[i][-1] != after[i][-1]):
+            #print("Not converged")
+            return True #Not converged
+    return False #Converged
+
+#Check the value of the distortion function
+def distortionfunction(data, clusters):
+    distortion = 0
+    for point in data:
+        for cluster in clusters:
+            if(cluster[-1] == point[-1]):
+                distortion += (point_to_cluster_distance(point, cluster))**2
+    return distortion
 
 #Function to perform kmeans
 def kmeans(data, k):
@@ -34,7 +72,70 @@ def kmeans(data, k):
         rand_clusters.append(rand_centers)
         cluster_id += 1
     #print(rand_clusters)
-
+    clusters = rand_clusters
+    #print(clusters)
+    #k-means algorithm
+    tolerance = True
+    iteration = 0
+    while(tolerance):
+        #Assign each point to its nearest cluster
+        begin_data  = copy.deepcopy(data)
+        #point_counter = 0
+        for point in data:
+            point_to_cluster_distances = list()
+            #print(point_to_cluster_distances)
+            for cluster in clusters:
+                #print(cluster)
+                distance = point_to_cluster_distance(point, cluster)
+                point_to_cluster_distances.append(distance)
+            #print(point_to_cluster_distances)
+            min_cluster_index = np.argmin(point_to_cluster_distances)
+            #print(min_cluster_index)
+            #temp = data[point_counter][-1]
+            #print(data[point_counter][-1])
+            point[-1] = min_cluster_index
+            #print(temp, data[point_counter][-1])
+            #point_counter += 1
+            #print(point)
+        #Update centroids
+        cluster_means = copy.deepcopy(clusters)
+        for cluster in cluster_means:
+            cluster[:2] = [0] * 2
+        #print(cluster_means)
+        cluster_counter = list()
+        for cluster in cluster_means:
+            cluster_counter.append(0)
+        #print(cluster_counter)
+        for point in data:
+            for cluster in clusters:
+                if(point[-1] == cluster[-1]):
+                    cluster_counter[point[-1]] += 1.0
+                    for i in range(0, len(cluster_means[point[-1]]) - 1):
+                        cluster_means[point[-1]][i] += point[i]
+                    #print("Count this point in mean")
+        for i in range(0, len(cluster_means)):
+            for j in range(0, len(cluster_means[i]) - 1):
+                if(cluster_counter[i] != 0):
+                    cluster_means[i][j] /= cluster_counter[i]
+                else:
+                    print("No points assigned to cluster " + str(i))
+        for i in range(0, len(clusters)):
+            for j in range(0, len(clusters[i])):
+                if(cluster_counter[i] != 0):
+                    clusters[i][j] = cluster_means[i][j]
+        #print(cluster_means)
+        #print(clusters)
+        #Check tolerance
+        after_data = copy.deepcopy(data)
+        #print(begin_data)
+        #print(after_data)
+        tolerance = checktolerance(begin_data, after_data)
+        distortion = distortionfunction(after_data, clusters)
+        #print(tolerance)
+        #tolerance = False
+        iteration += 1
+        print("Iteration " + str(iteration) + " Distortion = " + str(distortion))
+    print("Converged!")
 
 #Loads a dataset (e.g. toydata.txt)
 def loaddata(filename):
