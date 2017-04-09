@@ -106,6 +106,87 @@ def kmeans(data, k):
         distortion_at_iteration.append([distortion, iteration])
     return data, distortion_at_iteration
 
+#Function to perform kmeans++
+def kmeanspp(data, k):
+    #Data will be represented in the following way: a list of all points, each point being a list containing the value in each dimension and its final value being an integer identifying the cluster it is assigned to
+    data_clustered = list()
+    for line in data:
+        line.append(0)
+        data_clustered.append(line)
+    clusters = list()
+    point_dimension = len(data_clustered[0]) - 1 #Requires all data points be same size
+    #Get maximum data point for scaling random numbers
+    max_data_scale = np.amax(np.absolute(np.asarray(data_clustered)))
+    #Initialize clusters with k-means++ algorithm
+    pp_clusters = list()
+    #Choose a random center from the data points
+    rand_id = int(math.ceil(random.random()*len(data)) - 1)
+    center = data[rand_id]
+    pp_clusters.append(center)
+    for x in range(1, k):
+        pp_distances = list()
+        #Compute D(x)^2
+        for point in data:
+            temp_distances = list()
+            for cluster in range(0, x):
+                distance = point_to_cluster_distance(point, pp_clusters[cluster])
+                temp_distances.append(distance)
+            min_dist = np.amin(temp_distances)
+            pp_distances.append(min_dist**2)
+        #Calculate probability
+        sum_distances = np.sum(np.asarray(pp_distances))
+        probs = pp_distances / sum_distances
+        #Choose new center according to new probability distribution
+        center_id = np.random.choice(np.asarray(range(0, len(data))), p = np.asarray(probs))
+        center = data[center_id]
+        center[-1] = x
+        #Add center to list of clusters
+        pp_clusters.append(center)
+    clusters = pp_clusters
+    #k-means algorithm
+    tolerance = True
+    iteration = 0
+    distortion_at_iteration = list()
+    while(tolerance):
+        #Assign each point to its nearest cluster
+        begin_data  = copy.deepcopy(data)
+        for point in data:
+            point_to_cluster_distances = list()
+            for cluster in clusters:
+                distance = point_to_cluster_distance(point, cluster)
+                point_to_cluster_distances.append(distance)
+            min_cluster_index = np.argmin(point_to_cluster_distances)
+            point[-1] = min_cluster_index
+        #Update centroids
+        cluster_means = copy.deepcopy(clusters)
+        for cluster in cluster_means:
+            cluster[:2] = [0] * 2
+        cluster_counter = list()
+        for cluster in cluster_means:
+            cluster_counter.append(0)
+        for point in data:
+            for cluster in clusters:
+                if(point[-1] == cluster[-1]):
+                    cluster_counter[point[-1]] += 1.0
+                    for i in range(0, len(cluster_means[point[-1]]) - 1):
+                        cluster_means[point[-1]][i] += point[i]
+        for i in range(0, len(cluster_means)):
+            for j in range(0, len(cluster_means[i]) - 1):
+                if(cluster_counter[i] != 0):
+                    cluster_means[i][j] /= cluster_counter[i]
+        for i in range(0, len(clusters)):
+            for j in range(0, len(clusters[i])):
+                if(cluster_counter[i] != 0):
+                    clusters[i][j] = cluster_means[i][j]
+        #Check tolerance
+        after_data = copy.deepcopy(data)
+        tolerance = checktolerance(begin_data, after_data)
+        distortion = distortionfunction(after_data, clusters)
+        iteration += 1
+        distortion_at_iteration.append([distortion, iteration])
+    return data, distortion_at_iteration
+
+
 #Loads a dataset (e.g. toydata.txt)
 def loaddata(filename):
     with open(filename) as f:
@@ -182,3 +263,29 @@ for x, c in zip(range(0, 20), colors):
 #leg = plt.legend(loc=2, prop={'size':6}, ncol=4) #Might need to change this if dataset changes
 g.show()
 g.savefig("distortion_output.png")
+
+#Run kmeans++ 20 times
+output_20 = list()
+distortion_20 = list()
+for step in range(0, 20):
+    del data[:]
+    data = loaddata("toydata.txt")
+    output, distortion = kmeanspp(data, cluster_number)
+    output_20.append(output)
+    distortion_20.append(distortion)
+
+#Plot distortion function versus iteration number
+h = plt.figure(3)
+plt.title("Distortion for 20 random k-means++ runs")
+plt.xlabel("Iteration number")
+plt.ylabel("Distortion")
+colors = cm.rainbow(np.linspace(0, 1, 20))
+for x, c in zip(range(0, 20), colors):
+    label_name = "k-means++ run number " + str(x)
+    plt.plot([item[1] for item in distortion_20[x]], [item[0] for item in distortion_20[x]], color=c, marker='.', linestyle='-', label=label_name)
+
+#leg = plt.legend(loc=2, prop={'size':6}, ncol=4) #Might need to change this if dataset changes
+h.show()
+h.savefig("distortion_output_++.png")
+
+
