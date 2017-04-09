@@ -136,9 +136,9 @@ def kmeans(data, k):
         #tolerance = False
         iteration += 1
         #data = copy.deepcopy(after_data)
-        print("Iteration " + str(iteration) + " Distortion = " + str(distortion))
+        #print("Iteration " + str(iteration) + " Distortion = " + str(distortion))
         distortion_at_iteration.append([distortion, iteration])
-    print("Converged!")
+    #print("Converged!")
     return data, distortion_at_iteration
 
 #Loads a dataset (e.g. toydata.txt)
