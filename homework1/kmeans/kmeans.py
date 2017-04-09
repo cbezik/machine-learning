@@ -77,6 +77,7 @@ def kmeans(data, k):
     #k-means algorithm
     tolerance = True
     iteration = 0
+    distortion_at_iteration = list()
     while(tolerance):
         #Assign each point to its nearest cluster
         begin_data  = copy.deepcopy(data)
@@ -134,8 +135,11 @@ def kmeans(data, k):
         #print(tolerance)
         #tolerance = False
         iteration += 1
+        #data = copy.deepcopy(after_data)
         print("Iteration " + str(iteration) + " Distortion = " + str(distortion))
+        distortion_at_iteration.append([distortion, iteration])
     print("Converged!")
+    return data, distortion_at_iteration
 
 #Loads a dataset (e.g. toydata.txt)
 def loaddata(filename):
@@ -172,4 +176,19 @@ def loaddata(filename):
 data = loaddata("toydata.txt")
 #print(data)
 #Run k-means on the toy data for 3 clusters
-kmeans(data, 3)
+output, distortion = kmeans(data, 3)
+#print(output)
+#Plot output dataset
+
+#Run kmeans 20 times
+output_20 = list()
+distortion_20 = list()
+for step in range(0, 20):
+    del data[:]
+    #print(data)
+    data = loaddata("toydata.txt")
+    output, distortion = kmeans(data, 3)
+    output_20.append(output)
+    distortion_20.append(distortion)
+
+print(distortion_20)
