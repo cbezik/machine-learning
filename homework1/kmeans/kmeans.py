@@ -5,10 +5,12 @@ import numpy as np
 import random
 import math
 import copy
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+import matplotlib.cm as cm
 
 #Calculates distances between a point and a cluster
 def point_to_cluster_distance(point, cluster):
-    #print(point, cluster)
     temp_point = copy.deepcopy(point)
     temp_cluster = copy.deepcopy(cluster)
     temp_point.pop()
@@ -25,11 +27,7 @@ def point_to_cluster_distance(point, cluster):
 def checktolerance(begin, after):
     #Requires begin and after be same size
     for i in range(0, len(begin)):
-        #print("Checking convergence")
-        #print(begin[i][-1])
-        #print(after[i][-1])
         if(begin[i][-1] != after[i][-1]):
-            #print("Not converged")
             return True #Not converged
     return False #Converged
 
@@ -49,31 +47,22 @@ def kmeans(data, k):
     for line in data:
         line.append(0)
         data_clustered.append(line)
-    #print(data_clustered)
     clusters = list()
     point_dimension = len(data_clustered[0]) - 1 #Requires all data points be same size
-    #print(point_dimension)
     #Get maximum data point for scaling random numbers
     max_data_scale = np.amax(np.absolute(np.asarray(data_clustered)))
-    #max_data_scale = max(max_data_list)
-    #print(max_data_list)
-    #print(max_data_scale)
     #Initialize random clusters
     cluster_id = 0
     rand_clusters = list()
     for x in range(0, k):
-        #print("Cluster test")
         rand_centers = list()
         for y in range(0, point_dimension):
             rand = (2.0*random.random() - 1.0)*max_data_scale
             rand_centers.append(rand)
-        #print(rand_centers)
         rand_centers.append(cluster_id)
         rand_clusters.append(rand_centers)
         cluster_id += 1
-    #print(rand_clusters)
     clusters = rand_clusters
-    #print(clusters)
     #k-means algorithm
     tolerance = True
     iteration = 0
@@ -81,64 +70,40 @@ def kmeans(data, k):
     while(tolerance):
         #Assign each point to its nearest cluster
         begin_data  = copy.deepcopy(data)
-        #point_counter = 0
         for point in data:
             point_to_cluster_distances = list()
-            #print(point_to_cluster_distances)
             for cluster in clusters:
-                #print(cluster)
                 distance = point_to_cluster_distance(point, cluster)
                 point_to_cluster_distances.append(distance)
-            #print(point_to_cluster_distances)
             min_cluster_index = np.argmin(point_to_cluster_distances)
-            #print(min_cluster_index)
-            #temp = data[point_counter][-1]
-            #print(data[point_counter][-1])
             point[-1] = min_cluster_index
-            #print(temp, data[point_counter][-1])
-            #point_counter += 1
-            #print(point)
         #Update centroids
         cluster_means = copy.deepcopy(clusters)
         for cluster in cluster_means:
             cluster[:2] = [0] * 2
-        #print(cluster_means)
         cluster_counter = list()
         for cluster in cluster_means:
             cluster_counter.append(0)
-        #print(cluster_counter)
         for point in data:
             for cluster in clusters:
                 if(point[-1] == cluster[-1]):
                     cluster_counter[point[-1]] += 1.0
                     for i in range(0, len(cluster_means[point[-1]]) - 1):
                         cluster_means[point[-1]][i] += point[i]
-                    #print("Count this point in mean")
         for i in range(0, len(cluster_means)):
             for j in range(0, len(cluster_means[i]) - 1):
                 if(cluster_counter[i] != 0):
                     cluster_means[i][j] /= cluster_counter[i]
-                else:
-                    print("No points assigned to cluster " + str(i))
         for i in range(0, len(clusters)):
             for j in range(0, len(clusters[i])):
                 if(cluster_counter[i] != 0):
                     clusters[i][j] = cluster_means[i][j]
-        #print(cluster_means)
-        #print(clusters)
         #Check tolerance
         after_data = copy.deepcopy(data)
-        #print(begin_data)
-        #print(after_data)
         tolerance = checktolerance(begin_data, after_data)
         distortion = distortionfunction(after_data, clusters)
-        #print(tolerance)
-        #tolerance = False
         iteration += 1
-        #data = copy.deepcopy(after_data)
-        #print("Iteration " + str(iteration) + " Distortion = " + str(distortion))
         distortion_at_iteration.append([distortion, iteration])
-    #print("Converged!")
     return data, distortion_at_iteration
 
 #Loads a dataset (e.g. toydata.txt)
@@ -154,9 +119,7 @@ def loaddata(filename):
         for element in line:
             element = element.replace("\n", "")
             cleaned_line.append(element)
-        #print(cleaned_line)
         cleaned_line = filter(None, cleaned_line)
-        #print(cleaned_line)
         cleaned_lines.append(cleaned_line)
     converted_lines = list()
     for line in cleaned_lines:
@@ -165,30 +128,57 @@ def loaddata(filename):
             element = float(element)
             converted_line.append(element)
         converted_lines.append(converted_line)
-    #print(cleaned_lines)
-    #x_data = [item[0] for item in cleaned_lines]
-    #y_data = [item[1] for item in cleaned_lines]
-    #print(x_data, y_data)
-    #print(converted_lines)
     return(converted_lines)
 
 #Here will be the calls to run k-means and produce output
 data = loaddata("toydata.txt")
-#print(data)
+cluster_number = 3
+
 #Run k-means on the toy data for 3 clusters
-output, distortion = kmeans(data, 3)
-#print(output)
+output, distortion = kmeans(data, cluster_number)
+
 #Plot output dataset
+plt.title("Clustering via k-means")
+plt.xlabel("X Coordinate")
+plt.ylabel("Y Coordinate")
+organized_data = list()
+
+for cluster in range(0, cluster_number):
+    organized_data.append([])
+for point in data:
+    for i in range(0, cluster_number):
+        if point[-1] == i:
+            organized_data[i].append(point)
+
+f = plt.figure(1)
+colors = cm.rainbow(np.linspace(0, 1, cluster_number))
+for x, c in zip(range(0, cluster_number), colors):
+    label_name = "Cluster number " + str(x)
+    plt.scatter([item[0] for item in organized_data[x]], [item[1] for item in organized_data[x]], color=c, marker='o', label=label_name)
+leg = plt.legend(loc=2, prop={'size':13}) #Might need to change this if dataset changes
+f.show()
+f.savefig("kmeans_output.png")
 
 #Run kmeans 20 times
 output_20 = list()
 distortion_20 = list()
 for step in range(0, 20):
     del data[:]
-    #print(data)
     data = loaddata("toydata.txt")
-    output, distortion = kmeans(data, 3)
+    output, distortion = kmeans(data, cluster_number)
     output_20.append(output)
     distortion_20.append(distortion)
 
-print(distortion_20)
+#Plot distortion function versus iteration number
+g = plt.figure(2)
+plt.title("Distortion for 20 random k-means runs")
+plt.xlabel("Iteration number")
+plt.ylabel("Distortion")
+colors = cm.rainbow(np.linspace(0, 1, 20))
+for x, c in zip(range(0, 20), colors):
+    label_name = "k-means run number " + str(x)
+    plt.plot([item[1] for item in distortion_20[x]], [item[0] for item in distortion_20[x]], color=c, marker='.', linestyle='-', label=label_name)
+
+#leg = plt.legend(loc=2, prop={'size':6}, ncol=4) #Might need to change this if dataset changes
+g.show()
+g.savefig("distortion_output.png")
