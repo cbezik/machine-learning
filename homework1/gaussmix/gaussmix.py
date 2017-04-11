@@ -1,4 +1,4 @@
-#Python code to implement k-means algorithm
+#Python code to implement mixture of Gaussians EM algorithm
 #Author: Cody Bezik
 
 import numpy as np
@@ -26,7 +26,7 @@ def point_to_cluster_distance(point, cluster):
 #Tolerance checker - checks to see if cluster assignments have changed
 def checktolerance(begin, after):
     #Requires begin and after be same size
-    for i in range(0, len(begin)):
+    gfor i in range(0, len(begin)):
         if(begin[i][-1] != after[i][-1]):
             return True #Not converged
     return False #Converged
