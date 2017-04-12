@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import matplotlib.cm as cm
 from scipy.stats import multivariate_normal
+import sys
+import operator
 
 #Calculates distances between a point and a cluster
 def point_to_cluster_distance(point, cluster):
@@ -148,22 +150,16 @@ def kmeanspp(data, k):
 
 def log_likelihood(data, means, covars, weights):
     likelihood = 0
-    #print("Hello")
     for i in range(0, len(data)):
         for j in range(0, len(means)):
             N = multivariate_normal.pdf(data[i][:-1], mean=means[j], cov=covars[j])
-            #print(N)
-            #interior = 0
             interior = weights[j]*N
             likelihood += interior
-            #print(len(data), len(means))
-    #print(likelihood)
     return likelihood
 
 def em_tolerance(before, after):
     diff = abs(after - before)
-    print(diff)
-    if(diff >= 1e-5):
+    if(diff >= 1e-2):
         return True
     else:
         return False
@@ -173,10 +169,10 @@ def gaussmixem(data, k):
     clean_data = copy.deepcopy(data)
     output = list()
     likelihood = list()
+    iteration = 0
 
     #Run k-means++ on the data to initialize
     output_kmeans, distortion_kmeans, clusters_kmeans, point_dimensionality = kmeanspp(data, k)
-    #print(clusters_kmeans)
 
     data = copy.deepcopy(clean_data)
     for point in data:
@@ -195,71 +191,46 @@ def gaussmixem(data, k):
             initial_gauss_covars[cluster].append([])
             for row in range(0, point_dimensionality):
                 initial_gauss_covars[cluster][dimension].append(0)
-    #print(initial_gauss_covars)
     point_counter = list()
     for cluster in range(0, k):
         point_counter.append(0)
-    #print(point_counter)
     for point in output_kmeans:
         for i in range(0, len(initial_gauss_means)):
             if point[-1] == i:
                 point_counter[i] += 1.0
                 temp_point = np.asarray(point[:-1])
-                #print(temp_point)
                 temp_mean = np.asarray(initial_gauss_means[i])
-                #print(temp_mean)
                 point_minus_mean = temp_point - temp_mean
-                #point_minus_mean_transpose = np.transpose(point_minus_mean)
-                #print(point_minus_mean)
                 product = np.outer(point_minus_mean, point_minus_mean) #Necessitates data points be represented as one dimensional arrays
-                #print(point_minus_mean_transpose)
                 initial_gauss_covars[i] += product
-                #print(product)
-    #print(initial_gauss_covars)
     for i in range(0 , len(initial_gauss_covars)):
-        #print(initial_gauss_covars)
         for j in range(0, len(initial_gauss_covars[i])):
             for l in range(0, len(initial_gauss_covars[i][j])):
-                #print(column)
-                #print(point_counter[i])
                 initial_gauss_covars[i][j][l] /= point_counter[i]
-                #print(column)
     #Initialize weights
     initial_gauss_weights = list()
     for i in range(0, k):
-        #print(len(data))
-        #print(i)
-        #print(range(0, k))
         initial_gauss_weights.append(point_counter[i] / len(data))
-    #print(initial_gauss_weights)
     #Set up for algorithm
     tolerance = True
     gauss_means = copy.deepcopy(initial_gauss_means)
     gauss_covars = copy.deepcopy(initial_gauss_covars)
     gauss_weights = copy.deepcopy(initial_gauss_weights)
     while(tolerance):
-        #print("Hello world")
         #E-step - update the assignments
         begin_likelihood = log_likelihood(data, gauss_means, gauss_covars, gauss_weights)
         for point in data:
             normals = list()
-            #print(point[-1])
             for i in range(0, k):
-                #print(point[:-1], gauss_means[i], gauss_covars[i])
                 N = multivariate_normal.pdf(point[:-1], mean = gauss_means[i], cov=gauss_covars[i])
                 normals.append(N)
-                #print(N)
             sum_weights_norms = 0
             for i in range(0, k):
                 sum_weights_norms += gauss_weights[i]*normals[i]
             for i in range(0, len(point[-1])):
                 pij = (gauss_weights[i]*normals[i]) / sum_weights_norms
                 point[-1][i] = pij
-            #print(point[-1])
-            #print(sum_weights_norms)
-            #print(normals)
-            #print(normals)
-        #print(data)
+            print(point[-1])
         #M-step - updating weights, means, covars
         pij_sum = list()
         for i in range(0, k):
@@ -268,24 +239,76 @@ def gaussmixem(data, k):
         for point in data:
             for i in range(0, len(point[-1])):
                 pij_sum[i] += point[-1][i]
-        print(pij_sum)
+        n = len(data)
+        for j in range(0, k):
+            gauss_weights[j] = pij_sum[j] / float(n)
+        pij_xi_sum = list()
+        #Below this line doesn't properly support beyond 2D points
+        for i in range(0, k):
+            pij_xi_sum.append([0, 0])
+        pij_xi_sum = np.asarray(pij_xi_sum)
         for point in data:
-            n = len(data)
-            #for j in range(0, k):
-                #gauss_weights[j] =
-
+            for i in range(0, len(point[-1])):
+                temp_point = np.asarray(point[:-1])*point[-1][i]
+                pij_xi_sum[i] = np.add(pij_xi_sum[i], temp_point)
+        for j in range(0, k):
+            gauss_means[j] = pij_xi_sum[j] / pij_sum[j]
+        pij_sum_x_mu = list()
+        for i in range (0, k):
+            pij_sum_x_mu.append([[0,0], [0,0]])
+        pij_sum_x_mu = np.asarray(pij_sum_x_mu)
+        for point in data:
+            for i in range(0, len(point[-1])):
+                pij_sum_x_mu[i] += [[1, 1], [1,1]]
+                temp_point = np.asarray(point[:-1])
+                temp_mean = np.asarray(gauss_means[i])
+                point_minus_mean = temp_point - temp_mean
+                #print(point_minus_mean)
+                #print(point[-1][i])
+                product = np.outer(point_minus_mean, point_minus_mean)*point[-1][i] #Necessitates data points be represented as one dimensional arrays
+                pij_sum_x_mu[i] = np.add(pij_sum_x_mu[i], product)
+        for point in data:
+            if(iteration > 0):
+                index, value = max(enumerate(data[-1]), key=operator.itemgetter(1))
+                if(index != 2):
+                    sys.exit()
+        for j in range(0, k):
+            gauss_covars[j] = pij_sum_x_mu[j] / pij_sum[j]
         after_likelihood = log_likelihood(data, gauss_means, gauss_covars, gauss_weights)
-        #tolerance = em_tolerance(begin_likelihood, after_likelihood)
-        tolerance = False
-
-#print(initial_gauss_covars)
-
-    return output, likelihood
+        tolerance = em_tolerance(begin_likelihood, after_likelihood)
+        iteration += 1
+        likelihood.append([after_likelihood, iteration])
+    return data, likelihood
 
 
 #Import dataset and set parameters
 data = loaddata("toydata.txt")
 cluster_number = 3
 output, output_likelihood = gaussmixem(data, cluster_number)
-#print(data)
-#print(output, likelihood)
+
+for point in output:
+    index, value = max(enumerate(output[-1]), key=operator.itemgetter(1))
+    point.pop()
+    point.append(index)
+
+#Plot output dataset
+plt.title("Clustering via Mixture of Gaussians EM")
+plt.xlabel("X Coordinate")
+plt.ylabel("Y Coordinate")
+organized_data = list()
+
+for cluster in range(0, cluster_number):
+    organized_data.append([])
+for point in output:
+    for i in range(0, cluster_number):
+        if point[-1] == i:
+            organized_data[i].append(point)
+
+f = plt.figure(1)
+colors = cm.rainbow(np.linspace(0, 1, cluster_number))
+for x, c in zip(range(0, cluster_number), colors):
+    label_name = "Cluster number " + str(x)
+    plt.scatter([item[0] for item in organized_data[x]], [item[1] for item in organized_data[x]], color=c, marker='o', label=label_name)
+leg = plt.legend(loc=2, prop={'size':13}) #Might need to change this if dataset changes
+f.show()
+f.savefig("gauss_output.png")
