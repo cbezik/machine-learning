@@ -277,6 +277,9 @@ data = loaddata("toydata.txt")
 cluster_number = 3
 output, output_likelihood = gaussmixem(data, cluster_number)
 
+print(output_likelihood)
+
+
 for point in output:
     index = np.argmax(point[-1])
     point.pop()
