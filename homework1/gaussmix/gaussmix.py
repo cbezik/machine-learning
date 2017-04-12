@@ -218,6 +218,7 @@ def gaussmixem(data, k):
     gauss_weights = copy.deepcopy(initial_gauss_weights)
     while(tolerance):
         #E-step - update the assignments
+        #print(gauss_means, gauss_covars, gauss_weights)
         begin_likelihood = log_likelihood(data, gauss_means, gauss_covars, gauss_weights)
         for point in data:
             normals = list()
@@ -230,7 +231,7 @@ def gaussmixem(data, k):
             for i in range(0, len(point[-1])):
                 pij = (gauss_weights[i]*normals[i]) / sum_weights_norms
                 point[-1][i] = pij
-            print(point[-1])
+            #print(np.argmax(point[-1]))
         #M-step - updating weights, means, covars
         pij_sum = list()
         for i in range(0, k):
@@ -242,42 +243,58 @@ def gaussmixem(data, k):
         n = len(data)
         for j in range(0, k):
             gauss_weights[j] = pij_sum[j] / float(n)
+        #print(gauss_weights)
         pij_xi_sum = list()
         #Below this line doesn't properly support beyond 2D points
         for i in range(0, k):
-            pij_xi_sum.append([0, 0])
+            pij_xi_sum.append([0.0, 0.0])
         pij_xi_sum = np.asarray(pij_xi_sum)
         for point in data:
             for i in range(0, len(point[-1])):
+                #print(np.asarray(point[:-1]))
+                #print(point[-1][i])
                 temp_point = np.asarray(point[:-1])*point[-1][i]
-                pij_xi_sum[i] = np.add(pij_xi_sum[i], temp_point)
+                pij_xi_sum[i] = pij_xi_sum[i] + temp_point
+        #print(pij_xi_sum, pij_sum)
         for j in range(0, k):
             gauss_means[j] = pij_xi_sum[j] / pij_sum[j]
         pij_sum_x_mu = list()
         for i in range (0, k):
-            pij_sum_x_mu.append([[0,0], [0,0]])
+            pij_sum_x_mu.append([[0.0,0.0], [0.0,0.0]])
         pij_sum_x_mu = np.asarray(pij_sum_x_mu)
         for point in data:
             for i in range(0, len(point[-1])):
-                pij_sum_x_mu[i] += [[1, 1], [1,1]]
                 temp_point = np.asarray(point[:-1])
                 temp_mean = np.asarray(gauss_means[i])
+                #print(temp_point, temp_mean)
                 point_minus_mean = temp_point - temp_mean
                 #print(point_minus_mean)
-                #print(point[-1][i])
+                #print(i, point[-1][i])
                 product = np.outer(point_minus_mean, point_minus_mean)*point[-1][i] #Necessitates data points be represented as one dimensional arrays
-                pij_sum_x_mu[i] = np.add(pij_sum_x_mu[i], product)
-        for point in data:
-            if(iteration > 0):
-                index, value = max(enumerate(data[-1]), key=operator.itemgetter(1))
-                if(index != 2):
-                    sys.exit()
+                #print(product)
+                #print(pij_sum_x_mu[i] + product)
+                #print(pij_sum_x_mu)
+                #print(product)
+                pij_sum_x_mu[i] = np.add(pij_sum_x_mu[i], product, casting='no')
+                #print(pij_sum_x_mu[i])
         for j in range(0, k):
             gauss_covars[j] = pij_sum_x_mu[j] / pij_sum[j]
+        #print(gauss_covars)
+        """for point in data:
+            if(iteration > 0):
+                index = np.argmax(point[-1])
+                print(index)
+                if(index != 2):
+                    print("Past iteration 1 and still okay")
+                    sys.exit()
+        """
         after_likelihood = log_likelihood(data, gauss_means, gauss_covars, gauss_weights)
         tolerance = em_tolerance(begin_likelihood, after_likelihood)
         iteration += 1
         likelihood.append([after_likelihood, iteration])
+        #print(gauss_means, gauss_covars, gauss_weights)
+        #sys.exit()
+        #print(iteration)
     return data, likelihood
 
 
@@ -286,8 +303,10 @@ data = loaddata("toydata.txt")
 cluster_number = 3
 output, output_likelihood = gaussmixem(data, cluster_number)
 
+#print(output_likelihood)
+
 for point in output:
-    index, value = max(enumerate(output[-1]), key=operator.itemgetter(1))
+    index = np.argmax(point[-1])
     point.pop()
     point.append(index)
 
