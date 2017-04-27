@@ -159,7 +159,7 @@ def log_likelihood(data, means, covars, weights):
 
 def em_tolerance(before, after):
     diff = abs(after - before)
-    if(diff >= 1e-2):
+    if(diff >= 1e-5):
         return True
     else:
         return False
