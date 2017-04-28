@@ -1,5 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import spatial
+#from sklearn.neighbors import NearestNeighbors
 
 #This code will import the dataset 3Ddata.txt and perform the following:
     #PCA reducing its dimensionality from 3 to 2
@@ -46,17 +48,39 @@ def sorteigens(eig_val, eig_vec):
     eig_pairs.sort(key=lambda x: x[0], reverse=True)
     return eig_pairs
 
-#Generate eigenvector matrix in specified number of dimensions
+#Generates matrix of two leading eigenvectors with specified number of dimensions
 def geteigenmatrix(pairs, dimension):
-    if(dimension == 2):
-        matrix_w = np.hstack((pairs[0][1].reshape(3, 1), pairs[1][1].reshape(3,1)))
+    rows = dimension + 1
+    columns = 1
+    matrix_w = np.hstack((pairs[0][1].reshape(rows, columns), pairs[1][1].reshape(rows, columns)))
     return matrix_w
+
+#Diagonal matrix containing 2 leading eigenvalues on the diagonals
+def geteigenvaluematrix(pairs):
+    s = (2,2)
+    matrix_l = np.zeros(s)
+    matrix_l[0][0] = pairs[0][0]
+    matrix_l[1][1] = pairs[1][0]
+    return matrix_l
 
 #Project data onto subspace
 def projectdata(matrix, data):
     transformed = matrix.T.dot(data)
     return(transformed)
 
+#Floyd's algorithm on a matrix, currently requires nxn matrix
+def floyds(matrix):
+    dimension = matrix[0].size
+    output = matrix
+    for k in range(0, dimension):
+        for i in range(0, dimension):
+            for j in range(0, dimension):
+                dij = matrix[i][j]
+                dik = matrix[i][k]
+                dkj = matrix[k][j]
+                replacement_val = min(dij, dik + dkj)
+                output[i][j] = replacement_val
+    return output
 
 #First import the dataset
 data = loaddata("3Ddata.txt")
@@ -77,10 +101,9 @@ pca_output = projectdata(eigen_matrix, reorganized_data)
 
 #Plot PCA results
 
-#print(pca_output)
+
 #Tag points with appropriate color
 for i, point in enumerate(data):
-    #print(int(point[3]))
     if(point[3] == 1):
         plt.plot([pca_output[0,i]], [pca_output[1,i]], color="green", marker='o')
     if(point[3] == 2):
@@ -92,8 +115,6 @@ for i, point in enumerate(data):
 
 f = plt.figure(1)
 
-#plt.scatter(pca_output[0], pca_output[1], color="red", marker='o')
-
 """colors = cm.rainbow(np.linspace(0, 1, cluster_number))
 for x, c in zip(range(0, cluster_number), colors):
     label_name = "Cluster number " + str(x)
@@ -103,3 +124,65 @@ leg = plt.legend(loc=2, prop={'size':13}) #Might need to change this if dataset 
 
 f.show()
 f.savefig("pca_output.png")
+
+#Do Isomap
+#Re-import the dataset
+data = loaddata("3Ddata.txt")
+
+#Compute distances between every point (not sure I need this anymore)
+reorganized_data = np.vstack((data[:,0], data[:,1],data[:,2]))
+Y = spatial.distance.cdist(reorganized_data.T, reorganized_data.T, 'euclidean') #Accepts input in the form of m x n array, m = number of observations, n = number of dimensions
+
+#Find k-nearest neighbors
+NN_tree = spatial.cKDTree(reorganized_data.T)
+"""
+for point in reorganized_data.T:
+    k_nns = NN_tree.query(point, k=10) #k_nns is a tuple containing a list of the nearest neighbor distances and the associated index of the nearest points
+"""
+
+for i in range(0, Y[0].size):
+    k_nns = NN_tree.query(reorganized_data.T[i], k=11, p=2)
+    for j in range(0, Y[0].size):
+        if(j == i):
+            Y[i][j] = 0
+        elif(j in k_nns[1]):
+            continue
+        else:
+            Y[i][j] = float("inf")
+
+#Do Floyd's algorithm
+shortest = floyds(Y)
+
+#Create matrix of squared distances
+squared_shortest = np.square(shortest)
+#Create centering matrix
+centering = np.zeros((squared_shortest[0].size, squared_shortest[0].size))
+np.fill_diagonal(centering, 1.0)
+centering = centering - (1.0 / squared_shortest[0].size)
+tau = reduce(np.dot, [centering, squared_shortest, centering])
+tau = -0.5*tau
+eig_val_cov, eig_vec_cov = geteigens(tau)
+eig_pairs = sorteigens(eig_val_cov, eig_vec_cov)
+eigen_matrix = geteigenmatrix(eig_pairs, squared_shortest[0].size - 1)
+lambda_matrix = geteigenvaluematrix(eig_pairs)
+isomap_output = np.dot(np.real(eigen_matrix), np.sqrt(lambda_matrix))
+
+#Plot Isomap results
+
+g = plt.figure(2)
+
+#Tag points with appropriate color
+for i, point in enumerate(data):
+    if(int(point[3]) == 1):
+        plt.plot([isomap_output[i,0]], [isomap_output[i,1]], color="green", marker='o')
+    if(int(point[3]) == 2):
+        plt.plot([isomap_output[i,0]], [isomap_output[i,1]], color="yellow", marker='o')
+    if(int(point[3]) == 3):
+        plt.plot([isomap_output[i,0]], [isomap_output[i,1]], color="blue", marker='o')
+    if(int(point[3]) == 4):
+        plt.plot([isomap_output[i,0]], [isomap_output[i,1]], color="red", marker='o')
+
+g.show()
+g.savefig("isomap_output.png")
+
+#np.set_printoptions(threshold='nan')
