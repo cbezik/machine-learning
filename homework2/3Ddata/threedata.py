@@ -242,7 +242,7 @@ def LLE():
         Z = Z - Xi
         C = np.cov(Z.T)
         #Regularize covariance matrix to get full rank
-        eps = 1e-3*np.trace(C)
+        eps = 1e-2*np.trace(C) #/ (nearest_neighbors - 1)
         #C = C+eps*np.identity(number_points - 1)
         C = C + eps*np.identity(nearest_neighbors - 1)
         #C_inverse = np.linalg.inv(C) #Likely not strictly the most efficient but okay for the small size we have here
@@ -257,7 +257,10 @@ def LLE():
         #print(k_nns[1][1:])
         #print(w)
         weight_getter = 0
-        for j in k_nns[1][1:]:
+        #sorted_knns = np.sort(k_nns[1][1:])
+        sorted_knns = k_nns[1][1:]
+        #print(sorted_knns)
+        for j in sorted_knns:
             """
             if(j > i):
                 weights[i][j] = np.sum(C_inverse[j - 1]) / sum_c_inverse
@@ -274,7 +277,7 @@ def LLE():
     eig_pairs = sorteigens(eig_val, eig_vec)
     #print(eig_pairs)
     eigen_matrix = getreverseeigenmatrix(eig_pairs, number_points - 1)
-    eigen_matrix /= eig_pairs[number_points - 1][1][0] #This is a hack but the bottom eigenvector is supposed to be a matrix of all ones but instead it's some constant less than one, so I'm taking that constant and rescaling the other eigenvectors
+    #eigen_matrix /= eig_pairs[number_points - 1][1][0] #This is a hack but the bottom eigenvector is supposed to be a matrix of all ones but instead it's some constant less than one, so I'm taking that constant and rescaling the other eigenvectors
     #print(eigen_matrix)
     #print(len(eig_pairs))
     #print(eig_pairs[499][1])
