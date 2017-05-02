@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import spatial
 from scipy.linalg import solve
+import math
 
 #from sklearn.neighbors import NearestNeighbors
 
@@ -240,9 +241,10 @@ def LLE():
             Z[:,j - 1] = reorganized_data.T[k_nns[1][j]]
         #print(Z)
         Z = Z - Xi
-        C = np.cov(Z.T)
+        #C = np.cov(Z.T)
+        C = np.dot(Z.T, Z)
         #Regularize covariance matrix to get full rank
-        eps = 1e-2*np.trace(C) #/ (nearest_neighbors - 1)
+        eps = 1e-3*np.trace(C) #/ (nearest_neighbors - 1)
         #C = C+eps*np.identity(number_points - 1)
         C = C + eps*np.identity(nearest_neighbors - 1)
         #C_inverse = np.linalg.inv(C) #Likely not strictly the most efficient but okay for the small size we have here
@@ -270,14 +272,16 @@ def LLE():
             weights[i][j] = w[weight_getter] / sum_w
             weight_getter += 1
     #print(weights)
-    M = np.cov((np.identity(number_points) - weights).T)
+    #M = np.cov((np.identity(number_points) - weights).T)
+    i_minus_w = np.identity(number_points) - weights
+    M = np.dot(i_minus_w.T, i_minus_w)
     eig_val, eig_vec = geteigens(M)
     #print(eig_val)
     #print(eig_vec)
     eig_pairs = sorteigens(eig_val, eig_vec)
     #print(eig_pairs)
-    eigen_matrix = getreverseeigenmatrix(eig_pairs, number_points - 1)
-    #eigen_matrix /= eig_pairs[number_points - 1][1][0] #This is a hack but the bottom eigenvector is supposed to be a matrix of all ones but instead it's some constant less than one, so I'm taking that constant and rescaling the other eigenvectors
+    eigen_matrix = getreverseeigenmatrix(eig_pairs, number_points - 1)*math.sqrt(number_points)
+    #eigen_matrix /= -1.0*eig_pairs[number_points - 1][1][0] #This is a hack but the bottom eigenvector is supposed to be a matrix of all ones but instead it's some constant less than one, so I'm taking that constant and rescaling the other eigenvectors
     #print(eigen_matrix)
     #print(len(eig_pairs))
     #print(eig_pairs[499][1])
@@ -308,8 +312,8 @@ def LLE():
 
 #Run various methods
 def main():
-    #PCA()
-    #Isomap()
+    PCA()
+    Isomap()
     LLE()
 
 
